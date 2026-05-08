@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sovereign Guard | RSA/ECC Secure Social System</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <aside>
+    <div class="logo">SG</div>
+    <h1>Sovereign Guard</h1>
+    <p class="small">Secure user data and social posts using from-scratch RSA/ECC.</p>
+    <nav id="nav" class="hidden">
+      <button data-view="dashboard">Dashboard</button>
+      <button data-view="posts">Posts</button>
+      <button data-view="profile">Profile</button>
+      <button data-view="storage">Encrypted Storage</button>
+      <button data-view="keys" class="admin-only">Key Management</button>
+      <button data-view="rbac" class="admin-only">RBAC Admin</button>
+      <button id="logout">Logout</button>
+    </nav>
+    <div class="note">Demo Admin: <b>admin</b> / <b>Admin@12345</b><br>Demo User: <b>user</b> / <b>User@12345</b></div>
+  </aside>
+
+  <main>
+    <section id="auth" class="grid two">
+      <div class="hero card">
+        <span class="pill">CSE447 Cryptography Project</span>
+        <h2>Sovereign Guard: Secure System for User Data and Social Posts using RSA/ECC</h2>
+        <p>Registration/login, encrypted profile and post management, two-step authentication, HMAC integrity verification, RBAC, secure sessions, and key rotation.</p>
+        <div class="chips"><span>RSA user fields</span><span>ECC posts</span><span>Salted hashes</span><span>HMAC MAC</span><span>RBAC</span></div>
+      </div>
+      <div class="card">
+        <div class="tabs"><button id="showLogin" class="active">Login</button><button id="showRegister">Register</button></div>
+        <form id="loginForm" class="form">
+          <h3>Login - Step 1</h3>
+          <label>Username or email<input id="loginId" required placeholder="admin" /></label>
+          <label>Password<input id="loginPw" type="password" required placeholder="Password" /></label>
+          <button class="primary">Verify credentials</button>
+        </form>
+        <form id="registerForm" class="form hidden">
+          <h3>Encrypted Registration</h3>
+          <label>Full name<input id="regName" required /></label>
+          <label>Username<input id="regUser" required /></label>
+          <label>Email<input id="regEmail" type="email" required /></label>
+          <label>Contact<input id="regPhone" required /></label>
+          <label>Password<input id="regPw" type="password" minlength="8" required /></label>
+          <label>Role<select id="regRole"><option value="user">Regular User</option><option value="admin">Administrator</option></select></label>
+          <label id="inviteWrap" class="hidden">Admin invite code<input id="invite" placeholder="SOVEREIGN-ADMIN" /></label>
+          <button class="primary">Register securely</button>
+        </form>
+      </div>
+    </section>
+
+    <section id="otp" class="card center hidden">
+      <h2>Two-Factor Authentication</h2>
+      <p>Primary credentials are correct. Enter the second factor to create a session.</p>
+      <div class="otpbox">Current classroom OTP: <b id="otpCodeDemo">------</b></div>
+      <form id="otpForm" class="form narrow"><input id="otpCode" maxlength="6" required placeholder="6-digit OTP" /><button class="primary">Grant access</button></form>
+    </section>
+
+    <section id="app" class="hidden">
+      <header><div><p class="small">Authenticated workspace</p><h2 id="title">Dashboard</h2></div><div class="session"><b id="who">Guest</b><span id="role">role</span></div></header>
+
+      <section id="dashboard" class="view card">
+        <div class="stats"><div><b id="userCount">0</b><span>Users</span></div><div><b id="postCount">0</b><span>Posts</span></div><div><b id="keyCount">0</b><span>Keys</span></div><div><b id="macStatus">OK</b><span>MAC status</span></div></div>
+        <h3>Security Workflow</h3>
+        <ol><li>Validate input</li><li>Encrypt profile data with RSA</li><li>Hash password with salt</li><li>Require OTP verification</li><li>Encrypt posts with ECC</li><li>Attach HMAC to encrypted records</li><li>Issue signed session token</li></ol>
+        <h3>Audit Log</h3><div id="audit"></div>
+      </section>
+
+      <section id="posts" class="view card hidden">
+        <h3>Create / Edit Social Post</h3>
+        <form id="postForm" class="form">
+          <input type="hidden" id="postId" />
+          <label>Title<input id="postTitle" required /></label>
+          <label>Tags<input id="postTags" /></label>
+          <label>Content<textarea id="postBody" required></textarea></label>
+          <div><button class="primary">Save encrypted post</button><button type="button" id="cancelPost" class="ghost hidden">Cancel</button></div>
+        </form>
+        <h3>Decrypted View</h3><div id="postList"></div>
+      </section>
+
+      <section id="profile" class="view card hidden">
+        <h3>Profile Management</h3>
+        <form id="profileForm" class="form">
+          <label>Name<input id="proName" /></label>
+          <label>Email<input id="proEmail" /></label>
+          <label>Contact<input id="proPhone" /></label>
+          <button class="primary">Update encrypted profile</button>
+        </form>
+        <h3>Encrypted field preview</h3><pre id="profileCipher"></pre>
+      </section>
+
+      <section id="storage" class="view card hidden">
+        <h3>Raw Database Evidence</h3><p class="small">The database stores ciphertext, salted password hashes, HMAC tags, sealed keys, and audit events.</p>
+        <button id="tamper" class="ghost">Simulate tampering</button><pre id="rawDb"></pre>
+      </section>
+
+      <section id="keys" class="view card hidden">
+        <h3>Key Management Module</h3><button id="rotate" class="primary">Rotate RSA + ECC Keys</button><div id="keyList"></div>
+      </section>
+
+      <section id="rbac" class="view card hidden">
+        <h3>RBAC Permission Matrix</h3>
+        <table><tr><th>Operation</th><th>Admin</th><th>User</th></tr><tr><td>View/edit own profile</td><td>Yes</td><td>Yes</td></tr><tr><td>Create/edit own posts</td><td>Yes</td><td>Yes</td></tr><tr><td>Delete any post</td><td>Yes</td><td>No</td></tr><tr><td>View users</td><td>Yes</td><td>No</td></tr><tr><td>Rotate keys</td><td>Yes</td><td>No</td></tr></table>
+        <div id="users"></div>
+      </section>
+    </section>
+    <div id="toast" class="toast hidden"></div>
+  </main>
+  <script src="js/crypto.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

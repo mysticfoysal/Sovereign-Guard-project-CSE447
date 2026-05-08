@@ -1,0 +1,623 @@
+/* Sovereign Guard educational crypto library. Implemented from scratch  */
+window.CryptoScratch = (() => {
+  const utf8ToBytes = (s) => {
+    const out = [];
+    for (let i = 0; i < s.length; i++) {
+      let c = s.charCodeAt(i);
+      if (c < 128) {
+        out.push(c);
+      } else if (c < 2048) {
+        out.push(192 | (c >> 6), 128 | (c & 63));
+      } else {
+        out.push(
+          224 | (c >> 12),
+          128 | ((c >> 6) & 63),
+          128 | (c & 63)
+        );
+      }
+    }
+    return out;
+  };
+
+  const bytesToUtf8 = (bytes) => {
+    let s = "";
+    for (let i = 0; i < bytes.length; ) {
+      let b = bytes[i++];
+      if (b < 128) {
+        s += String.fromCharCode(b);
+      } else if ((b & 224) === 192) {
+        s += String.fromCharCode(
+          ((b & 31) << 6) | (bytes[i++] & 63)
+        );
+      } else {
+        s += String.fromCharCode(
+          ((b & 15) << 12) |
+          ((bytes[i++] & 63) << 6) |
+          (bytes[i++] & 63)
+        );
+      }
+    }
+    return s;
+  };
+
+  const hex = (bytes) =>
+    bytes.map((b) => b.toString(16).padStart(2, "0")).join("");
+
+  const unhex = (h) => {
+    const a = [];
+    for (let i = 0; i < h.length; i += 2) {
+      a.push(parseInt(h.slice(i, i + 2), 16));
+    }
+    return a;
+  };
+
+  const rotr = (x, n) => (x >>> n) | (x << (32 - n));
+
+  function sha256(msg) {
+    const K = [
+      0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
+      0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+      0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
+      0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+      0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc,
+      0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+      0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7,
+      0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+      0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
+      0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+      0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3,
+      0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+      0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5,
+      0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+      0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
+      0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+    ];
+
+    const b = utf8ToBytes(msg);
+    const bit = b.length * 8;
+
+    b.push(128);
+
+    while (b.length % 64 !== 56) {
+      b.push(0);
+    }
+
+    for (let i = 7; i >= 0; i--) {
+      b.push((bit / (2 ** (i * 8))) & 255);
+    }
+
+    let H = [
+      0x6a09e667,
+      0xbb67ae85,
+      0x3c6ef372,
+      0xa54ff53a,
+      0x510e527f,
+      0x9b05688c,
+      0x1f83d9ab,
+      0x5be0cd19
+    ];
+
+    let w = new Array(64);
+
+    for (let c = 0; c < b.length; c += 64) {
+      for (let i = 0; i < 16; i++) {
+        let j = c + i * 4;
+
+        w[i] = (
+          (b[j] << 24) |
+          (b[j + 1] << 16) |
+          (b[j + 2] << 8) |
+          b[j + 3]
+        ) >>> 0;
+      }
+
+      for (let i = 16; i < 64; i++) {
+        let s0 = (
+          rotr(w[i - 15], 7) ^
+          rotr(w[i - 15], 18) ^
+          (w[i - 15] >>> 3)
+        ) >>> 0;
+
+        let s1 = (
+          rotr(w[i - 2], 17) ^
+          rotr(w[i - 2], 19) ^
+          (w[i - 2] >>> 10)
+        ) >>> 0;
+
+        w[i] = (
+          w[i - 16] +
+          s0 +
+          w[i - 7] +
+          s1
+        ) >>> 0;
+      }
+
+      let [a, bv, cc, d, e, f, g, h] = H;
+
+      for (let i = 0; i < 64; i++) {
+        let S1 = (
+          rotr(e, 6) ^
+          rotr(e, 11) ^
+          rotr(e, 25)
+        ) >>> 0;
+
+        let ch = ((e & f) ^ (~e & g)) >>> 0;
+
+        let t1 = (
+          h +
+          S1 +
+          ch +
+          K[i] +
+          w[i]
+        ) >>> 0;
+
+        let S0 = (
+          rotr(a, 2) ^
+          rotr(a, 13) ^
+          rotr(a, 22)
+        ) >>> 0;
+
+        let maj = (
+          (a & bv) ^
+          (a & cc) ^
+          (bv & cc)
+        ) >>> 0;
+
+        let t2 = (S0 + maj) >>> 0;
+
+        h = g;
+        g = f;
+        f = e;
+        e = (d + t1) >>> 0;
+        d = cc;
+        cc = bv;
+        bv = a;
+        a = (t1 + t2) >>> 0;
+      }
+
+      H = [
+        (H[0] + a) >>> 0,
+        (H[1] + bv) >>> 0,
+        (H[2] + cc) >>> 0,
+        (H[3] + d) >>> 0,
+        (H[4] + e) >>> 0,
+        (H[5] + f) >>> 0,
+        (H[6] + g) >>> 0,
+        (H[7] + h) >>> 0
+      ];
+    }
+
+    return H.map((x) =>
+      x.toString(16).padStart(8, "0")
+    ).join("");
+  }
+
+  function hmac(key, msg) {
+    let kb = utf8ToBytes(key);
+
+    if (kb.length > 64) {
+      kb = unhex(sha256(key));
+    }
+
+    while (kb.length < 64) {
+      kb.push(0);
+    }
+
+    const o = kb.map((x) => x ^ 92);
+    const i = kb.map((x) => x ^ 54);
+
+    return sha256(
+      bytesToUtf8(o) +
+      bytesToUtf8(
+        unhex(
+          sha256(bytesToUtf8(i) + msg)
+        )
+      )
+    );
+  }
+
+  let seed =
+    BigInt(Date.now()) ^
+    0x9e3779b97f4a7c15n;
+
+  function r32() {
+    seed ^= seed << 13n;
+    seed ^= seed >> 7n;
+    seed ^= seed << 17n;
+
+    return Number(seed & 0xffffffffn) >>> 0;
+  }
+
+  const randomHex = (n) =>
+    hex(
+      Array.from(
+        { length: n },
+        () => r32() & 255
+      )
+    );
+
+  const gcd = (a, b) => {
+    while (b) {
+      let t = a % b;
+      a = b;
+      b = t;
+    }
+    return a;
+  };
+
+  const egcd = (a, b) =>
+    b === 0n
+      ? [a, 1n, 0n]
+      : (() => {
+          const [g, x, y] = egcd(b, a % b);
+          return [g, y, x - (a / b) * y];
+        })();
+
+  const inv = (a, m) => {
+    const [g, x] = egcd(
+      (a % m + m) % m,
+      m
+    );
+
+    if (g !== 1n) {
+      throw Error("inverse failed");
+    }
+
+    return (x % m + m) % m;
+  };
+
+  function mpow(b, e, m) {
+    b = (b % m + m) % m;
+
+    let r = 1n;
+
+    while (e > 0n) {
+      if (e & 1n) {
+        r = (r * b) % m;
+      }
+
+      b = (b * b) % m;
+      e >>= 1n;
+    }
+
+    return r;
+  }
+
+  const primes = [
+    40009n, 42013n, 43019n, 45007n, 47017n,
+    49003n, 51001n, 53003n, 56003n, 59009n,
+    61001n, 64007n, 67003n, 70001n, 73009n,
+    76001n, 79031n, 82003n, 85009n, 88001n
+  ];
+
+  const RSA = {
+    generate() {
+      let p = primes[r32() % primes.length];
+      let q = primes[r32() % primes.length];
+
+      if (p === q) {
+        q = primes[
+          (Number(primes.indexOf(p)) + 1) %
+          primes.length
+        ];
+      }
+
+      let n = p * q;
+      let phi = (p - 1n) * (q - 1n);
+      let e = 65537n;
+
+      if (gcd(e, phi) !== 1n) {
+        e = 17n;
+      }
+
+      let d = inv(e, phi);
+
+      return {
+        publicKey: {
+          e: String(e),
+          n: String(n)
+        },
+        privateKey: {
+          d: String(d),
+          n: String(n)
+        }
+      };
+    },
+
+    encrypt(t, pub) {
+      let e = BigInt(pub.e);
+      let n = BigInt(pub.n);
+
+      return Array.from(t)
+        .map((ch) =>
+          mpow(
+            BigInt(ch.charCodeAt(0)),
+            e,
+            n
+          ).toString(16)
+        )
+        .join(".");
+    },
+
+    decrypt(c, priv) {
+      if (!c) {
+        return "";
+      }
+
+      let d = BigInt(priv.d);
+      let n = BigInt(priv.n);
+
+      return c
+        .split(".")
+        .filter(Boolean)
+        .map((x) =>
+          String.fromCharCode(
+            Number(
+              mpow(
+                BigInt("0x" + x),
+                d,
+                n
+              )
+            )
+          )
+        )
+        .join("");
+    },
+
+    sign(m, priv) {
+      let n = BigInt(priv.n);
+      let d = BigInt(priv.d);
+
+      let x =
+        BigInt(
+          "0x" + sha256(m).slice(0, 12)
+        ) % n;
+
+      return mpow(x, d, n).toString(16);
+    },
+
+    verify(m, s, pub) {
+      let n = BigInt(pub.n);
+      let e = BigInt(pub.e);
+
+      let x =
+        BigInt(
+          "0x" + sha256(m).slice(0, 12)
+        ) % n;
+
+      return (
+        mpow(
+          BigInt("0x" + s),
+          e,
+          n
+        ) === x
+      );
+    }
+  };
+
+  const EC = {
+    p: 131071n,
+    a: 2n,
+    b: 3n,
+    G: {
+      x: 3n,
+      y: 131065n
+    },
+    scale: 400n
+  };
+
+  const mod = (x) => {
+    x %= EC.p;
+    return x < 0n ? x + EC.p : x;
+  };
+
+  const neg = (P) =>
+    P
+      ? {
+          x: P.x,
+          y: mod(-P.y)
+        }
+      : null;
+
+  function add(P, Q) {
+    if (!P) return Q;
+    if (!Q) return P;
+
+    if (
+      P.x === Q.x &&
+      mod(P.y + Q.y) === 0n
+    ) {
+      return null;
+    }
+
+    let m =
+      P.x === Q.x && P.y === Q.y
+        ? mod(
+            (
+              (3n * P.x * P.x + EC.a) *
+              inv(2n * P.y, EC.p)
+            )
+          )
+        : mod(
+            (
+              (Q.y - P.y) *
+              inv(Q.x - P.x, EC.p)
+            )
+          );
+
+    let x = mod(m * m - P.x - Q.x);
+    let y = mod(m * (P.x - x) - P.y);
+
+    return { x, y };
+  }
+
+  function mul(k, P) {
+    let R = null;
+    let A = P;
+
+    while (k > 0n) {
+      if (k & 1n) {
+        R = add(R, A);
+      }
+
+      A = add(A, A);
+      k >>= 1n;
+    }
+
+    return R;
+  }
+
+  const po = (P) =>
+    P
+      ? {
+          x: String(P.x),
+          y: String(P.y)
+        }
+      : null;
+
+  const op = (o) =>
+    o
+      ? {
+          x: BigInt(o.x),
+          y: BigInt(o.y)
+        }
+      : null;
+
+  const sqrt = (v) => {
+    let y = mpow(
+      v,
+      (EC.p + 1n) / 4n,
+      EC.p
+    );
+
+    return mod(y * y) === mod(v)
+      ? y
+      : null;
+  };
+
+  function encByte(byte) {
+    for (let c = 0n; c < EC.scale; c++) {
+      let x =
+        BigInt(byte) * EC.scale + c;
+
+      let r = mod(
+        x * x * x +
+        EC.a * x +
+        EC.b
+      );
+
+      let y = sqrt(r);
+
+      if (y !== null) {
+        return { x, y };
+      }
+    }
+
+    throw Error("ECC encoding failed");
+  }
+
+  const ECC = {
+    generate() {
+      let d =
+        BigInt(
+          1000 + (r32() % 90000)
+        );
+
+      return {
+        publicKey: po(
+          mul(d, EC.G)
+        ),
+        privateKey: {
+          d: String(d)
+        }
+      };
+    },
+
+    encrypt(t, pub) {
+      let Q = op(pub);
+
+      return JSON.stringify(
+        utf8ToBytes(t).map((byte) => {
+          let M = encByte(byte);
+
+          let k =
+            BigInt(
+              1000 + (r32() % 90000)
+            );
+
+          let C1 = mul(k, EC.G);
+          let S = mul(k, Q);
+          let C2 = add(M, S);
+
+          return {
+            c1: po(C1),
+            c2: po(C2)
+          };
+        })
+      );
+    },
+
+    decrypt(c, priv) {
+      if (!c) {
+        return "";
+      }
+
+      let d = BigInt(priv.d);
+
+      return bytesToUtf8(
+        JSON.parse(c).map((pkt) => {
+          let M = add(
+            op(pkt.c2),
+            neg(
+              mul(
+                d,
+                op(pkt.c1)
+              )
+            )
+          );
+
+          return Number(
+            M.x / EC.scale
+          );
+        })
+      );
+    }
+  };
+
+  function passwordHash(pw, salt) {
+    let h = sha256(salt + ":" + pw);
+
+    for (let i = 0; i < 220; i++) {
+      h = sha256(
+        h + ":" + salt + ":" + pw
+      );
+    }
+
+    return h;
+  }
+
+  const otp = (secret) =>
+    String(
+      parseInt(
+        hmac(
+          secret,
+          String(
+            Math.floor(
+              Date.now() / 30000
+            )
+          )
+        ).slice(0, 8),
+        16
+      ) % 1000000
+    ).padStart(6, "0");
+
+  return {
+    sha256,
+    hmac,
+    randomHex,
+    RSA,
+    ECC,
+    passwordHash,
+    otp
+  };
+})();
